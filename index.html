@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hệ Thống Quản Lý Trường Học Số - Cloud Multi-Tenant</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- Firebase SDKs (Compat v10) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+body{font-family:system-ui,sans-serif;background:#f1f5f9;color:#334155}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;box-shadow:0 4px 6px -1px rgba(0,0,0,.05)}
+.ti{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px 12px;font-size:14px;outline:none}
+.ti:focus{border-color:#0ea5e9;box-shadow:0 0 0 3px rgba(14,165,233,.15)}
+.b{font-weight:700;font-size:13px;padding:9px 16px;border-radius:8px;color:#fff;background:#0369a1;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.b:hover{opacity:.9}
+.b-red{background:#dc2626}.b-emerald{background:#059669}.b-purple{background:#7c3aed}
+.nav-tab{padding:10px 16px;font-weight:700;font-size:13px;color:#7dd3fc;border-bottom:3px solid transparent;cursor:pointer}
+.nav-tab.on{color:#fff;border-color:#22d3ee;background:rgba(255,255,255,.05)}
+th{background:#0f2744;color:#e0f2fe;padding:9px 6px;font-size:11px;text-transform:uppercase;border:1px solid #1e3a5f}
+td{border:1px solid #e8edf3;padding:8px;vertical-align:middle;font-size:13px}
+.hide{display:none!important}
+</style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+<!-- MÀN HÌNH ĐĂNG NHẬP -->
+<div id="login-screen" class="fixed inset-0 z-50 grid place-items-center bg-slate-900 p-4">
+  <div class="card w-full max-w-md space-y-4">
+    <div class="text-center">
+      <h1 class="text-2xl font-black text-slate-900">DAO SCHOOL CLOUD</h1>
+      <p class="text-xs text-slate-500">Đăng nhập cổng quản trị trường học hoặc Super Admin</p>
+    </div>
+    <form onsubmit="handleLogin(event)" class="space-y-3">
+      <div>
+        <label class="text-xs font-bold text-slate-700">Mã trường (Để trống nếu là Super Admin Tổng)</label>
+        <input id="l-school" class="ti mt-1 uppercase" placeholder="VD: DAKSONG (hoặc bỏ trống)">
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-700">Tài khoản / Email</label>
+        <input id="l-user" required class="ti mt-1" placeholder="Nhập tài khoản (Mặc định: admin)" value="admin">
+      </div>
+      <div>
+        <label class="text-xs font-bold text-slate-700">Mật khẩu</label>
+        <input id="l-pass" type="password" required class="ti mt-1" placeholder="Nhập mật khẩu (Mặc định: 123456)" value="123456">
+      </div>
+      <button class="b w-full justify-center !py-3">ĐĂNG NHẬP HỆ THỐNG</button>
+    </form>
+  </div>
+</div>
+
+<!-- GIAO DIỆN CHÍNH SAU KHI ĐĂNG NHẬP -->
+<div id="app-screen" class="hide flex flex-col h-full">
+  <header class="text-white shadow" style="background:linear-gradient(120deg,#07142a,#0a2a52 60%,#0369a1)">
+    <div class="px-6 py-3 flex justify-between items-center flex-wrap gap-2">
+      <div>
+        <h1 class="text-lg font-black" id="header-brand">SCHOOL SYSTEM</h1>
+        <p class="text-xs text-cyan-200" id="header-sub">Đang kết nối...</p>
+      </div>
+      <div class="flex items-center gap-3 text-sm">
+        <span id="user-info" class="font-bold"></span>
+        <button onclick="logout()" class="bg-red-600 px-3 py-1.5 rounded-lg text-xs font-bold">Thoát</button>
+      </div>
+    </div>
+    <nav class="flex overflow-x-auto px-4 bg-slate-950/40 border-t border-white/10" id="main-nav">
+      <!-- Dynamic Tabs -->
+    </nav>
+  </header>
+
+  <main class="flex-grow overflow-y-auto p-6 max-w-7xl mx-auto w-full">
+    <!-- SUPER ADMIN: QUẢN LÝ TRƯỜNG HỌC -->
+    <section id="sec-super-admin" class="space-y-4 hide">
+      <div class="card space-y-4">
+        <h2 class="font-black text-lg text-slate-900"><i class="fas fa-shield-halved text-red-600"></i> Cổng Quản Trị Super Admin (Tạo và Cấp Phép Trường)</h2>
+        <p class="text-sm text-slate-600">Thầy có thể tạo mới mã trường và cấp tài khoản Admin cho Hiệu trưởng/Quản trị viên của trường đó tại đây.</p>
+        <form onsubmit="createSchool(event)" class="grid sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl">
+          <input id="sa-id" required class="ti uppercase" placeholder="Mã trường (VD: DAKSONG)">
+          <input id="sa-name" required class="ti" placeholder="Tên trường đầy đủ">
+          <input id="sa-admin-email" required class="ti" placeholder="Email Admin trường">
+          <input id="sa-admin-pass" required type="password" class="ti" placeholder="Mật khẩu khởi tạo (≥6 ký tự)" value="123456">
+          <button class="b b-emerald sm:col-span-3 justify-center">KHỞI TẠO TRƯỜNG HỌC MỚI</button>
+        </form>
+        <h3 class="font-bold text-md mt-6">Danh sách các trường trong hệ thống</h3>
+        <table class="w-full"><thead><tr><th>Mã trường</th><th>Tên trường</th><th>Admin Email</th><th>Hành động</th></tr></thead><tbody id="schools-list-body"></tbody></table>
+      </div>
+    </section>
+
+    <!-- SCHOOL ADMIN: QUẢN LÝ NHÂN SỰ TRƯỜNG -->
+    <section id="sec-school-admin" class="space-y-4 hide">
+      <div class="card space-y-4">
+        <h2 class="font-black text-lg text-slate-900"><i class="fas fa-users-gear text-sky-600"></i> Quản trị Nhân sự & Tài khoản của Trường</h2>
+        <p class="text-sm text-slate-600">Tạo, phân quyền tài khoản cho giáo viên, tổ trưởng trong trường của thầy.</p>
+        <form onsubmit="createSchoolUser(event)" class="grid sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl">
+          <input id="u-name" required class="ti md:col-span-2" placeholder="Họ và tên giáo viên">
+          <select id="u-role" class="ti"><option value="gv">Giáo viên</option><option value="tt">Tổ trưởng</option><option value="bgh">Ban Giám Hiệu</option></select>
+          <input id="u-email" required class="ti" placeholder="Tài khoản / Email">
+          <input id="u-pass" required type="password" class="ti md:col-span-2" placeholder="Mật khẩu (mặc định 123456)" value="123456">
+          <button class="b sm:col-span-2 justify-center">THÊM NHÂN SỰ VÀO TRƯỜNG</button>
+        </form>
+        <table class="w-full"><thead><tr><th>Họ và tên</th><th>Vai trò</th><th>Tài khoản</th><th>Hành động</th></tr></thead><tbody id="school-users-body"></tbody></table>
+      </div>
+    </section>
+
+    <!-- HỆ SINH THÁI 1: KPI -->
+    <section id="sec-kpi" class="space-y-4 hide">
+      <div class="card">
+        <h2 class="font-black text-lg text-slate-900 mb-2"><i class="fas fa-chart-line text-sky-600"></i> 1. Quản trị KPI & Đánh giá thi đua</h2>
+        <p class="text-sm text-slate-600">Phân hệ chấm điểm hiệu suất công tác, Phụ lục II và Phụ lục III theo chuẩn quy định.</p>
+      </div>
+    </section>
+
+    <!-- HỆ SINH THÁI 2: TKB -->
+    <section id="sec-tkb" class="space-y-4 hide">
+      <div class="card">
+        <h2 class="font-black text-lg text-slate-900 mb-2"><i class="fas fa-calendar-days text-emerald-600"></i> 2. Xếp Thời Khóa Biểu (TKB School)</h2>
+        <p class="text-sm text-slate-600">Thuật toán xếp lịch tự động, không trùng tiết, đồng bộ trực tiếp với danh sách giáo viên của trường.</p>
+      </div>
+    </section>
+
+    <!-- HỆ SINH THÁI 3: AI EXAM -->
+    <section id="sec-ai" class="space-y-4 hide">
+      <div class="card">
+        <h2 class="font-black text-lg text-slate-900 mb-2"><i class="fas fa-robot text-purple-600"></i> 3. Tạo Đề Thi Bằng AI (Gemini)</h2>
+        <p class="text-sm text-slate-600">Xây dựng ma trận đề kiểm tra, tự động sinh câu hỏi trắc nghiệm và tự luận chuẩn xác qua trợ lý AI.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+// Cấu hình Firebase riêng của thầy (daoschool-64be0)
+const firebaseConfig = {
+  apiKey: "AIzaSyDZCYEE4iG5I9Fd3U4b0bOH2Eiy5-W3kmQ",
+  authDomain: "daoschool-64be0.firebaseapp.com",
+  projectId: "daoschool-64be0",
+  storageBucket: "daoschool-64be0.firebasestorage.app",
+  messagingSenderId: "567826556416",
+  appId: "1:567826556416:web:73de598ca833f147a1dae5",
+  measurementId: "G-1YZLE0KCBE"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+const SUPER_ADMIN_EMAIL = "admin@daoschool.edu.vn";
+let sessionData = { schoolId: null, role: null, user: null };
+
+function switchTab(tabId) {
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('on'));
+  event.currentTarget.classList.add('on');
+  ['super-admin', 'school-admin', 'kpi', 'tkb', 'ai'].forEach(id => {
+    document.getElementById('sec-' + id).classList.toggle('hide', id !== tabId);
+  });
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const schoolIdInput = document.getElementById('l-school').value.trim().toUpperCase();
+  const userStr = document.getElementById('l-user').value.trim().toLowerCase();
+  const pass = document.getElementById('l-pass').value;
+
+  try {
+    let email = userStr.includes('@') ? userStr : userStr + (schoolIdInput ? '@' + schoolIdInput.toLowerCase() + '.edu.vn' : '@daoschool.edu.vn');
+    
+    try {
+      await auth.signInWithEmailAndPassword(email, pass);
+    } catch (err) {
+      if ((email === SUPER_ADMIN_EMAIL || userStr === 'admin') && (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential')) {
+        await auth.createUserWithEmailAndPassword(SUPER_ADMIN_EMAIL, pass);
+        await auth.signInWithEmailAndPassword(SUPER_ADMIN_EMAIL, pass);
+      } else {
+        throw err;
+      }
+    }
+
+    if (email === SUPER_ADMIN_EMAIL || !schoolIdInput) {
+      sessionData = { schoolId: 'SYSTEM', role: 'super_admin', user: email };
+      setupSuperAdminUI();
+    } else {
+      const schoolDoc = await db.collection('system_schools').doc(schoolIdInput).get();
+      if (!schoolDoc.exists) {
+        alert("Mã trường này không tồn tại trong hệ thống!");
+        await auth.signOut();
+        return;
+      }
+      
+      const schoolData = schoolDoc.data();
+      sessionData = { 
+        schoolId: schoolIdInput, 
+        role: schoolData.adminEmail === email ? 'school_admin' : 'teacher', 
+        user: email 
+      };
+      setupSchoolUI(schoolData.name || schoolIdInput);
+    }
+
+    document.getElementById('login-screen').classList.add('hide');
+    document.getElementById('app-screen').classList.remove('hide');
+  } catch (err) {
+    alert('Đăng nhập thất bại: ' + (err.message || err));
+  }
+}
+
+function setupSuperAdminUI() {
+  document.getElementById('header-brand').textContent = "SUPER ADMIN PORTAL";
+  document.getElementById('header-sub').textContent = "Quản trị toàn hệ thống Đa trường";
+  document.getElementById('user-info').textContent = sessionData.user;
+  
+  document.getElementById('main-nav').innerHTML = `
+    <div class="nav-tab on" onclick="switchTab('super-admin')"><i class="fas fa-building-columns mr-1"></i> Quản lý Trường học</div>
+  `;
+  switchTab('super-admin');
+  loadSchoolsList();
+}
+
+function setupSchoolUI(schoolName) {
+  document.getElementById('header-brand').textContent = schoolName;
+  document.getElementById('header-sub').textContent = `Mã trường: ${sessionData.schoolId}`;
+  document.getElementById('user-info').textContent = sessionData.user;
+
+  let navHTML = '';
+  if (sessionData.role === 'school_admin') {
+    navHTML += `<div class="nav-tab on" onclick="switchTab('school-admin')"><i class="fas fa-users-gear mr-1"></i> Quản trị Nhân sự</div>`;
+  }
+  navHTML += `
+    <div class="nav-tab ${sessionData.role !== 'school_admin' ? 'on' : ''}" onclick="switchTab('kpi')"><i class="fas fa-chart-line mr-1"></i> 1. Quản trị KPI</div>
+    <div class="nav-tab" onclick="switchTab('tkb')"><i class="fas fa-calendar-days mr-1"></i> 2. Xếp TKB</div>
+    <div class="nav-tab" onclick="switchTab('ai')"><i class="fas fa-robot mr-1"></i> 3. Tạo Đề Thi AI</div>
+  `;
+  document.getElementById('main-nav').innerHTML = navHTML;
+  switchTab(sessionData.role === 'school_admin' ? 'school-admin' : 'kpi');
+  if (sessionData.role === 'school_admin') loadSchoolUsers();
+}
+
+async function createSchool(e) {
+  e.preventDefault();
+  const id = document.getElementById('sa-id').value.trim().toUpperCase();
+  const name = document.getElementById('sa-name').value.trim();
+  const email = document.getElementById('sa-admin-email').value.trim().toLowerCase();
+  const pass = document.getElementById('sa-admin-pass').value;
+
+  try {
+    await auth.createUserWithEmailAndPassword(email, pass);
+    await db.collection('system_schools').doc(id).set({ name, adminEmail: email, createdAt: Date.now() });
+    alert(`Đã khởi tạo thành công trường: ${name} (${id})`);
+    e.target.reset();
+    document.getElementById('sa-admin-pass').value = "123456";
+    loadSchoolsList();
+  } catch (err) {
+    alert('Lỗi tạo trường: ' + err.message);
+  }
+}
+
+async function loadSchoolsList() {
+  const snapshot = await db.collection('system_schools').get();
+  let html = '';
+  snapshot.forEach(doc => {
+    const d = doc.data();
+    html += `<tr><td><b>${doc.id}</b></td><td>${d.name}</td><td>${d.adminEmail}</td><td><span class="text-xs text-emerald-600 font-bold">Hoạt động</span></td></tr>`;
+  });
+  document.getElementById('schools-list-body').innerHTML = html || `<tr><td colspan="4" class="text-center text-slate-400">Chưa có trường nào được tạo.</td></tr>`;
+}
+
+async function createSchoolUser(e) {
+  e.preventDefault();
+  const name = document.getElementById('u-name').value.trim();
+  const role = document.getElementById('u-role').value;
+  const emailInput = document.getElementById('u-email').value.trim().toLowerCase();
+  const pass = document.getElementById('u-pass').value || '123456';
+
+  const email = emailInput.includes('@') ? emailInput : emailInput + '@' + sessionData.schoolId.toLowerCase() + '.edu.vn';
+
+  try {
+    await auth.createUserWithEmailAndPassword(email, pass);
+    await db.collection('system_schools').doc(sessionData.schoolId).collection('users').add({
+      fullName: name, role, email, createdAt: Date.now()
+    });
+    alert('Đã thêm nhân sự thành công!');
+    e.target.reset();
+    document.getElementById('u-pass').value = "123456";
+    loadSchoolUsers();
+  } catch (err) {
+    alert('Lỗi thêm nhân sự: ' + err.message);
+  }
+}
+
+async function loadSchoolUsers() {
+  const snapshot = await db.collection('system_schools').doc(sessionData.schoolId).collection('users').get();
+  let html = '';
+  snapshot.forEach(doc => {
+    const d = doc.data();
+    html += `<tr><td><b>${d.fullName}</b></td><td><span class="bg-slate-100 px-2 py-0.5 rounded text-xs font-bold">${d.role.toUpperCase()}</span></td><td>${d.email}</td><td><span class="text-xs text-emerald-600 font-bold">Hoạt động</span></td></tr>`;
+  });
+  document.getElementById('school-users-body').innerHTML = html || `<tr><td colspan="4" class="text-center text-slate-400">Chưa có nhân sự nào trong trường.</td></tr>`;
+}
+
+function logout() {
+  auth.signOut().then(() => location.reload());
+}
+</script>
+</body>
+</html>
