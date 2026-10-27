@@ -18,7 +18,10 @@ body{font-family:system-ui,'Segoe UI',sans-serif;background:#eef2f7;color:#33415
 .st{border-collapse:collapse}.st td,.st th{border:1px solid #cbd5e1;padding:3px 6px;font-size:12px;text-align:center}
 .st th{background:#0f2744;color:#e0f2fe}
 .hide{display:none!important}
-</style></head>
+</style><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+</head>
 <body>
 <div id="app" class="hide">
 <header class="text-white" style="background:linear-gradient(120deg,#07142a,#0a2a52 60%,#0369a1)">
@@ -32,20 +35,29 @@ body{font-family:system-ui,'Segoe UI',sans-serif;background:#eef2f7;color:#33415
  <div class="grid sm:grid-cols-4 gap-3">
   <label class="text-sm font-bold">Môn<input id="p-subj" class="ti" placeholder="Toán"></label>
   <label class="text-sm font-bold">Khối<input id="p-grade" class="ti" placeholder="10"></label>
-  <label class="text-sm font-bold sm:col-span-1">Tên bài kiểm tra<input id="p-title" class="ti" placeholder="Kiểm tra giữa học kì 1"></label>
+  <label class="text-sm font-bold">Tên bài kiểm tra<input id="p-title" class="ti" placeholder="Kiểm tra giữa học kì 1"></label>
   <label class="text-sm font-bold">Thời gian (phút)<input id="p-time" type="number" class="ti"></label></div>
  <div class="grid md:grid-cols-2 gap-3">
   <div class="border rounded-lg p-3 space-y-2"><b class="text-sm">Tải đề cương hoặc sách giáo khoa (.pdf, .docx, .txt)</b>
    <input type="file" multiple accept=".pdf,.docx,.txt,.md" onchange="addFiles(this)" class="ti">
-   <p class="text-xs text-slate-500">Mỗi file là một chủ đề hoặc chương. Nên tải từng chương/bài, không tải cả cuốn: mỗi nguồn giữ tối đa 12.000 ký tự đầu. PDF scan chưa có chữ thì không đọc được.</p></div>
+   <p class="text-xs text-slate-500">Có thể tải cả cuốn (tối đa 250.000 ký tự mỗi file), rồi bấm "Tách chương bằng AI" để tự chia thành từng chương/bài. PDF scan chưa có chữ thì không đọc được.</p></div>
   <div class="border rounded-lg p-3 space-y-2"><b class="text-sm">Hoặc dán nội dung</b>
    <input id="ps-t" class="ti" placeholder="Tên chủ đề/chương"><textarea id="ps-x" rows="3" class="ti" placeholder="Dán nội dung bài học, đề cương..."></textarea>
    <button class="b" onclick="push($('ps-t').value.trim()||'Chủ đề '+(E.src.length+1),$('ps-x').value);$('ps-x').value='';$('ps-t').value=''">Thêm nguồn</button></div></div>
- <div id="sl" class="space-y-2"></div></section>
+ <p id="sr-m" class="text-sm text-slate-600"></p>
+ <div id="sl" class="space-y-2"></div>
+ <div class="border-t pt-3 space-y-2"><button id="auto-b" class="b g" onclick="autoAll()">Tạo đề tự động (đặc tả, ma trận, câu hỏi, kiểm tra chéo)</button>
+  <p class="text-xs text-slate-500">Dùng thông số ở bước 2 (mặc định theo CV 7991). Câu hỏi đã duyệt trong ngân hàng được dùng lại trước, AI chỉ soạn phần còn thiếu. Sau đó bạn chỉ cần xem và duyệt ở bước 3.</p></div></section>
 
 <section id="s-spec" class="sx card space-y-3 hide">
  <h2 class="font-black text-lg">2. Ma trận và bản đặc tả (theo CV 7991/BGDĐT-GDTrH)</h2>
- <p class="text-xs text-slate-500">Mỗi dạng câu hỏi nhập hai số: tổng điểm và điểm mỗi câu. Mẫu của Bộ: nhiều lựa chọn 3,0 (0,25/câu), đúng-sai 2,0 (1,0/câu), trả lời ngắn 2,0 (0,5/câu), tự luận 3,0. Môn không dùng trả lời ngắn thì đặt điểm 0 và chuyển sang đúng-sai.</p>
+ <label class="text-sm font-bold">Mẫu cấu trúc đề
+  <select id="pre" onchange="preset(this.value)" class="ti" style="max-width:520px"><option value="">-- chọn để điền nhanh --</option>
+   <option value="a">CV 7991: nhiều lựa chọn 3, đúng-sai 2, trả lời ngắn 2, tự luận 3</option>
+   <option value="b">Không có trả lời ngắn: nhiều lựa chọn 3, đúng-sai 4, tự luận 3</option>
+   <option value="d">Trắc nghiệm 5 điểm, tự luận 5 điểm</option>
+   <option value="c">Tự luận 100%</option></select></label>
+ <p class="text-xs text-slate-500">Mỗi dạng có hai số: tổng điểm và điểm mỗi câu. Bạn có thể sửa trực tiếp sau khi chọn mẫu.</p>
  <div id="pp" class="grid sm:grid-cols-4 gap-2"></div>
  <div class="flex flex-wrap gap-2 items-center"><button id="sp-b" class="b" onclick="aiSpec()">AI soạn bản đặc tả và ma trận</button><button class="b d" onclick="calcMatrix()">Tính lại ma trận từ tỉ trọng</button><span id="sp-m" class="text-sm text-slate-600"></span></div>
  <div id="tp" class="space-y-3"></div>
@@ -54,14 +66,19 @@ body{font-family:system-ui,'Segoe UI',sans-serif;background:#eef2f7;color:#33415
 
 <section id="s-gen" class="sx card space-y-3 hide">
  <h2 class="font-black text-lg">3. Sinh câu hỏi, kiểm tra chéo và duyệt</h2>
- <div class="flex flex-wrap gap-2 items-center"><button id="g-b" class="b" onclick="genAll()">AI sinh câu hỏi theo ma trận</button><button id="v-b" class="b d" onclick="verify()">AI kiểm tra chéo đáp án</button><span id="g-m" class="text-sm text-slate-600"></span></div>
+ <div class="flex flex-wrap gap-2 items-center"><button id="g-b" class="b" onclick="genAll()">AI sinh câu hỏi theo ma trận</button><button id="v-b" class="b d" onclick="verify()">AI kiểm tra chéo đáp án</button><button class="b g" onclick="approveOK()">Duyệt tất cả câu đã qua kiểm tra chéo</button><span id="g-m" class="text-sm text-slate-600"></span></div>
+ <label class="text-sm font-bold">Hiển thị <select id="fil" onchange="FIL=this.value;renderQs()" class="ti" style="width:auto"><option value="all">Tất cả</option><option value="todo">Chưa duyệt</option><option value="flag">Bị AI cảnh báo</option></select></label>
  <p id="g-sum" class="text-sm font-bold"></p><div id="qs" class="space-y-3"></div></section>
+
+<section id="s-bank" class="sx card space-y-3 hide"><h2 class="font-black text-lg">Ngân hàng câu hỏi</h2>
+ <p class="text-xs text-slate-500">Câu hỏi bạn đã duyệt được lưu tự động. Khi tạo đề mới, hệ thống lấy câu có sẵn (cùng môn, khối, tên chủ đề, dạng, mức độ) trước, rồi mới nhờ AI soạn phần thiếu. Đánh dấu "Chia sẻ" để đồng nghiệp trong trường cùng dùng.</p>
+ <div id="bk" class="overflow-x-auto"></div></section>
 
 <section id="s-exp" class="sx card space-y-3 hide">
  <h2 class="font-black text-lg">4. Xuất đề thi</h2>
  <label class="text-sm font-bold">Số mã đề <select id="e-n" class="ti" style="width:auto"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
- <div class="flex flex-wrap gap-2"><button class="b" onclick="dlExam()">Tải đề thi (.doc)</button><button class="b g" onclick="dlKey()">Tải đáp án (.doc)</button><button class="b d" onclick="dlMx()">Tải ma trận và đặc tả (.doc)</button></div>
- <p class="text-xs text-slate-500">Mã đề thứ nhất giữ thứ tự gốc, các mã sau đảo thứ tự câu và phương án. Công thức được viết bằng ký hiệu thường, chưa hỗ trợ LaTeX.</p></section>
+ <div class="flex flex-wrap gap-2"><button class="b" onclick="dlExam()">Tải đề (.doc)</button><button class="b" onclick="pdfExam()">Xuất đề PDF (có công thức)</button><button class="b g" onclick="dlKey()">Tải đáp án (.doc)</button><button class="b d" onclick="dlMx()">Tải ma trận và đặc tả (.doc)</button></div>
+ <p class="text-xs text-slate-500">Mã đề thứ nhất giữ thứ tự gốc, các mã sau đảo thứ tự câu và phương án. File PDF hiển thị công thức chuẩn (cho phép cửa sổ bật lên, rồi chọn Lưu thành PDF). File Word đổi công thức sang ký hiệu thường nên chỉ phù hợp công thức đơn giản.</p></section>
 </main></div>
 
 <script src="config.js"></script>
@@ -79,6 +96,9 @@ const SYS='Bạn là giáo viên giỏi và chuyên gia kiểm tra đánh giá c
 const SYS2='Bạn là học sinh giỏi, giải bài cẩn thận từng bước. Chỉ trả về một đối tượng JSON hợp lệ, không markdown, không giải thích.';
 
 /* ===== XÁC THỰC: dùng chung phiên và mã trường của cổng ===== */
+let BANK=[],FIL='all';
+const col=n=>sch().collection(n);
+const addSrc=s=>col('exam_src').add({owner:me.id,t:s.t,x:s.x,at:Date.now()}).then(r=>r.id);
 auth.onAuthStateChanged(async u=>{
  if(!u||!SID)return location.replace('index.html');
  try{const em=(u.email||'').toLowerCase(),sd=await sch().get();
@@ -87,57 +107,82 @@ auth.onAuthStateChanged(async u=>{
   if(!m.exists&&sd.data().adminEmail!==em)throw new Error('Tài khoản không thuộc trường này.');
   me={id:em,fullName:m.exists?m.data().fullName:'Quản trị viên'};
   const t=await edoc().get();if(t.exists&&t.data().json)E={...E,...JSON.parse(t.data().json)};
-  start()}catch(e){alert('Không vào được: '+e.message);location.replace('index.html')}});
+  for(const s of E.src){if(s.id){try{const d=await col('exam_src').doc(s.id).get();s.x=d.exists?d.data().x:''}catch(e){if(e.code==='permission-denied')throw e;s.x=''}}else s.id=await addSrc(s)}
+  E.src=E.src.filter(s=>s.x);await loadBank();start()}
+ catch(e){alert('Không vào được: '+e.message+(e.code==='permission-denied'?'\nHãy dán Firestore Rules mới (tệp firestore.rules) rồi tải lại trang.':''));location.replace('index.html')}});
+async function loadBank(){BANK=[];
+ try{const a=await col('exam_bank').where('owner','==',me.id).get(),b=await col('exam_bank').where('shared','==',true).get(),m={};
+  [...a.docs,...b.docs].forEach(d=>m[d.id]={...d.data(),id:d.id});BANK=Object.values(m)}catch(e){console.warn('Ngân hàng câu hỏi:',e.message)}}
 function start(){
  $('app').classList.remove('hide');$('sn').textContent=SN;$('who').textContent=me.fullName;document.title='Đề thi AI - '+SN;
- $('nav').innerHTML=[['src','1. Tài liệu'],['spec','2. Ma trận & đặc tả'],['gen','3. Sinh & duyệt câu hỏi'],['exp','4. Xuất đề']].map(x=>`<button class="nt" id="n-${x[0]}" onclick="go('${x[0]}')">${x[1]}</button>`).join('');
+ $('nav').innerHTML=[['src','1. Tài liệu'],['spec','2. Ma trận & đặc tả'],['gen','3. Sinh & duyệt'],['exp','4. Xuất đề'],['bank','Ngân hàng câu hỏi']].map(x=>`<button class="nt" id="n-${x[0]}" onclick="go('${x[0]}')">${x[1]}</button>`).join('');
  $('pp').innerHTML=K.map(k=>`<div class="border rounded-lg p-2"><b class="text-xs">${KN[k]}</b><div class="flex gap-1 mt-1"><input id="pt-${k}" type="number" step="0.25" class="ti" title="Tổng điểm của dạng"><input id="pe-${k}" type="number" step="0.25" class="ti" title="Điểm mỗi câu"></div></div>`).join('')+[0,1,2].map(j=>`<div class="border rounded-lg p-2"><b class="text-xs">% số câu mức ${LV[j]}</b><input id="lv-${j}" type="number" class="ti mt-1"></div>`).join('');
  renderAll();go('src')}
-function go(n){document.querySelectorAll('.sx').forEach(e=>e.classList.add('hide'));$('s-'+n).classList.remove('hide');document.querySelectorAll('.nt').forEach(e=>e.classList.toggle('on',e.id==='n-'+n))}
+function go(n){document.querySelectorAll('.sx').forEach(e=>e.classList.add('hide'));$('s-'+n).classList.remove('hide');document.querySelectorAll('.nt').forEach(e=>e.classList.toggle('on',e.id==='n-'+n));if(n==='bank')renderBank()}
 function renderAll(){
  $('p-subj').value=E.subj;$('p-grade').value=E.grade;$('p-title').value=E.title;$('p-time').value=E.time;
  K.forEach(k=>{$('pt-'+k).value=E.pts[k];$('pe-'+k).value=E.per[k]});[0,1,2].forEach(j=>$('lv-'+j).value=E.lv[j]);
  renderSrc();renderTopics();renderMatrix();renderQs()}
 function readParams(){E.subj=$('p-subj').value.trim();E.grade=$('p-grade').value.trim();E.title=$('p-title').value.trim()||'Bài kiểm tra';E.time=+$('p-time').value||45;
  K.forEach(k=>{E.pts[k]=+$('pt-'+k).value||0;E.per[k]=+$('pe-'+k).value||0});E.lv=[0,1,2].map(j=>+$('lv-'+j).value||0)}
-async function save(q){readParams();const j=JSON.stringify(E);if(new Blob([j]).size>950000)return alert('Dữ liệu gần giới hạn 1MB. Hãy xóa bớt nguồn hoặc câu hỏi.');
- try{await edoc().set({json:j,at:Date.now()});if(q)alert('Đã lưu.')}catch(e){alert('Lỗi lưu: '+e.message+'\nKiểm tra Firestore Rules cho exam_data.')}}
+const PRE={a:[3,2,2,3,.25,1,.5,1],b:[3,4,0,3,.25,1,.5,1],c:[0,0,0,10,.25,1,.5,2],d:[5,0,0,5,.25,1,.5,1]};
+function preset(v){const p=PRE[v];if(!p)return;K.forEach((k,i)=>{$('pt-'+k).value=p[i];$('pe-'+k).value=p[4+i]});[40,30,30].forEach((x,j)=>$('lv-'+j).value=x);readParams()}
+async function save(q){readParams();const j=JSON.stringify({...E,src:E.src.map(s=>({id:s.id,t:s.t}))});
+ if(new Blob([j]).size>950000)return alert('Dữ liệu gần giới hạn 1MB. Hãy xóa bớt câu hỏi chưa dùng.');
+ try{await edoc().set({json:j,at:Date.now()});if(q)alert('Đã lưu.')}catch(e){alert('Lỗi lưu: '+e.message+'\nKiểm tra Firestore Rules (exam_data, exam_src, exam_bank).')}}
 
 /* ===== GỌI AI qua proxy (khóa API nằm ở máy chủ) ===== */
 async function ai(system,prompt,max){
  if(!AI_URL)throw new Error('Chưa cấu hình AI_URL trong dethi.html.');
  const r=await fetch(AI_URL,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({system,prompt,max,idToken:await auth.currentUser.getIdToken()})});
  const d=await r.json();if(d.error)throw new Error(d.error.message||d.error);return d.content.map(c=>c.text||'').join('')}
-const J=t=>{t=t.replace(/```json|```/g,'');return JSON.parse(t.slice(t.search(/[\[{]/),Math.max(t.lastIndexOf('}'),t.lastIndexOf(']'))+1))};
+const J=t=>{t=t.replace(/```json|```/g,'');const s=t.slice(t.search(/[\[{]/),Math.max(t.lastIndexOf('}'),t.lastIndexOf(']'))+1);try{return JSON.parse(s)}catch(e){return JSON.parse(s.replace(/\\(?!["\\\/bfnrtu])/g,'\\\\'))}};
 async function aj(s,p,m){for(let t=0;;t++){try{return J(await ai(s,p,m))}catch(e){if(t)throw e}}}
 const setMsg=(id,t)=>$(id).textContent=t;
 
-/* ===== 1. NGUỒN ===== */
+/* ===== 1. NGUỒN: tải cả cuốn, AI tự tách chương ===== */
+const MAXRAW=250000;
 async function addFiles(inp){
  for(const f of inp.files){let x='';const ext=f.name.split('.').pop().toLowerCase();
   try{if(ext==='pdf'){const d=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;for(let p=1;p<=d.numPages;p++)x+=(await(await d.getPage(p)).getTextContent()).items.map(i=>i.str).join(' ')+'\n'}
    else if(ext==='docx')x=(await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value;
    else x=await f.text()}catch(e){alert(f.name+': không đọc được ('+e.message+')');continue}
-  push(f.name.replace(/\.[^.]+$/,''),x)}
+  await push(f.name.replace(/\.[^.]+$/,''),x)}
  inp.value=''}
-function push(t,x){x=(x||'').replace(/[ \t]+/g,' ').replace(/\n\s*\n+/g,'\n').trim();
- if(x.length<50)return alert(`"${t}": gần như không có chữ. PDF scan cần bản có chữ hoặc hãy dán nội dung.`);
- if(x.length>12000)alert(`"${t}": dài ${x.length} ký tự, chỉ giữ 12.000 ký tự đầu. Nên tải từng chương/bài.`);
- E.src.push({t,x:x.slice(0,12000)});renderSrc();save()}
-function renderSrc(){$('sl').innerHTML=E.src.map((s,i)=>`<div class="flex gap-2 items-center"><span class="text-xs text-slate-400 w-5">${i+1}</span><input class="ti" value="${esc(s.t)}" onchange="E.src[${i}].t=this.value;if(E.topics[${i}])E.topics[${i}].name=this.value"><span class="text-xs whitespace-nowrap text-slate-500">${s.x.length.toLocaleString('vi-VN')} ký tự</span><button class="b d" onclick="delSrc(${i})">Xóa</button></div>`).join('')||'<p class="text-slate-400 italic text-sm">Chưa có nguồn. Tải file hoặc dán nội dung.</p>'}
-function delSrc(i){if(!confirm('Xóa nguồn này? Đặc tả, ma trận và câu hỏi đã tạo sẽ bị xóa để không bị lệch.'))return;E.src.splice(i,1);E.topics=[];E.qs=[];renderAll();save()}
+async function push(t,x){x=(x||'').replace(/[ \t]+/g,' ').replace(/\n\s*\n+/g,'\n').trim();
+ if(x.length<50)return alert(`"${t}": gần như không có chữ. PDF scan cần bản có chữ, hoặc hãy dán nội dung.`);
+ if(x.length>MAXRAW)alert(`"${t}": dài ${x.length.toLocaleString('vi-VN')} ký tự, chỉ giữ ${MAXRAW.toLocaleString('vi-VN')} ký tự đầu. Nên tách thành các file nhỏ hơn.`);
+ const s={t,x:x.slice(0,MAXRAW)};
+ try{s.id=await addSrc(s)}catch(e){return alert('Lỗi lưu tài liệu: '+e.message)}
+ E.src.push(s);renderSrc();save()}
+function renderSrc(){$('sl').innerHTML=E.src.map((s,i)=>`<div class="flex flex-wrap gap-2 items-center"><span class="text-xs text-slate-400 w-5">${i+1}</span><input class="ti" style="flex:1;min-width:180px" value="${esc(s.t)}" onchange="renSrc(${i},this.value)"><span class="text-xs whitespace-nowrap text-slate-500">${s.x.length.toLocaleString('vi-VN')} ký tự</span>${s.x.length>20000?`<button class="b g" onclick="aiSplit(${i})">Tách chương bằng AI</button>`:''}<button class="b d" onclick="delSrc(${i})">Xóa</button></div>`).join('')||'<p class="text-slate-400 italic text-sm">Chưa có nguồn. Tải file hoặc dán nội dung.</p>'}
+function renSrc(i,v){E.src[i].t=v;if(E.topics[i])E.topics[i].name=v;col('exam_src').doc(E.src[i].id).update({t:v}).catch(()=>{});save()}
+async function delSrc(i){if(!confirm('Xóa nguồn này? Bản đặc tả, ma trận và câu hỏi đang soạn sẽ bị xóa để không bị lệch (câu đã duyệt vẫn còn trong ngân hàng).'))return;
+ try{await col('exam_src').doc(E.src[i].id).delete()}catch(e){}E.src.splice(i,1);E.topics=[];E.qs=[];renderAll();save()}
+async function aiSplit(i){
+ const s=E.src[i];if(!confirm('AI sẽ đọc toàn bộ tài liệu và tách thành từng chương/bài. Tiếp tục?'))return;
+ setMsg('sr-m','AI đang đọc tài liệu và tách chương, có thể mất 1 đến 2 phút...');
+ try{const r=await aj(SYS,`Dưới đây là một tài liệu (sách giáo khoa hoặc đề cương). Liệt kê các chương/bài/chủ đề lớn theo đúng thứ tự xuất hiện, tối đa 25 mục. Với mỗi mục trả về: t (tên ngắn gọn, ví dụ "Chương 1. Hàm số") và h (NGUYÊN VĂN 30 đến 60 ký tự đầu của dòng tiêu đề, đúng như viết trong tài liệu, để tìm vị trí). JSON: {"c":[{"t":"","h":""}]}\n\nTÀI LIỆU:\n`+s.x,4000);
+  const flat=s.x.replace(/\s/g,' '),cut=[];let pos=0;
+  for(const c of r.c){const h=String(c.h||'').replace(/\s+/g,' ').trim();if(!h)continue;let p=flat.indexOf(h,pos);if(p<0&&h.length>20)p=flat.indexOf(h.slice(0,20),pos);if(p>=pos){cut.push({t:c.t,p});pos=p+1}}
+  if(cut.length<2)throw new Error('AI không tìm được ranh giới chương. Hãy tải từng chương riêng.');
+  const parts=cut.map((c,k)=>({t:c.t,x:s.x.slice(c.p,k+1<cut.length?cut[k+1].p:undefined).slice(0,60000)})).filter(p=>p.x.length>300);
+  for(const p of parts)p.id=await addSrc(p);
+  await col('exam_src').doc(s.id).delete();E.src.splice(i,1,...parts);E.topics=[];E.qs=[];renderAll();save();setMsg('sr-m',`Đã tách thành ${parts.length} chương/bài. Bấm "Tạo đề tự động" hoặc sang bước 2.`)}
+ catch(e){setMsg('sr-m','');alert('Lỗi tách chương: '+e.message)}}
 
+/* ===== 2. ĐẶC TẢ: AI soạn nội dung ===== */
+async function aiSpec(quiet){
+ readParams();if(!E.src.length){alert('Hãy thêm tài liệu ở bước 1.');return false}
+ $('sp-b').disabled=true;setMsg('sp-m','AI đang soạn bản đặc tả...');
+ const p=`Môn ${E.subj}, khối ${E.grade}. Bài kiểm tra: ${E.title}.\nCác nguồn, mỗi nguồn là một chủ đề/chương:\n`+E.src.map((s,i)=>`### [${i}] ${s.t}\n${s.x.slice(0,6000)}`).join('\n\n')+`\n\nLập bản đặc tả theo mẫu Công văn 7991/BGDĐT-GDTrH với ba mức Biết, Hiểu, Vận dụng. Với mỗi nguồn trả về: nd (nội dung/đơn vị kiến thức, ngắn gọn), w (tỉ trọng điểm %, tổng các nguồn bằng 100, theo khối lượng và tầm quan trọng), b/h/v (yêu cầu cần đạt ở từng mức, 1 đến 3 gạch đầu dòng ngắn bắt đầu bằng động từ, chỉ dựa trên tài liệu).\nJSON: {"topics":[{"i":0,"nd":"","w":0,"b":"","h":"","v":""}]}`;
+ try{const r=await aj(SYS,p,6000);
+  E.topics=E.src.map((s,i)=>{const x=r.topics.find(t=>+t.i===i)||{};return{name:s.t,nd:x.nd||'',w:+x.w||Math.round(100/E.src.length),yc:[x.b||'',x.h||'',x.v||'']}});
+  E.qs=[];calcMatrix();renderTopics();renderQs();save();setMsg('sp-m','Xong. Hãy rà soát và chỉnh trước khi sinh câu hỏi.');$('sp-b').disabled=false;return true}
+ catch(e){setMsg('sp-m','');alert('Lỗi AI: '+e.message);$('sp-b').disabled=false;return false}}
 /* ===== 2. MA TRẬN & ĐẶC TẢ: AI soạn nội dung, code tính số câu ===== */
 const cnt=k=>E.per[k]>0?Math.round(E.pts[k]/E.per[k]):0;
 function lr(n,w){const s=w.reduce((a,b)=>a+b,0)||1,ex=w.map(x=>n*x/s),r=ex.map(Math.floor);let d=n-r.reduce((a,b)=>a+b,0);ex.map((x,i)=>[x-r[i],i]).sort((a,b)=>b[0]-a[0]).forEach(([,i])=>{if(d-->0)r[i]++});return r}
-async function aiSpec(){
- readParams();if(!E.src.length)return alert('Hãy thêm tài liệu ở bước 1.');
- $('sp-b').disabled=true;setMsg('sp-m','AI đang soạn bản đặc tả...');
- const p=`Môn ${E.subj}, khối ${E.grade}. Bài kiểm tra: ${E.title}.\nCác nguồn, mỗi nguồn là một chủ đề/chương:\n`+E.src.map((s,i)=>`### [${i}] ${s.t}\n${s.x.slice(0,3500)}`).join('\n\n')+`\n\nLập bản đặc tả theo mẫu Công văn 7991/BGDĐT-GDTrH với ba mức Biết, Hiểu, Vận dụng. Với mỗi nguồn trả về: nd (nội dung/đơn vị kiến thức, ngắn gọn), w (tỉ trọng điểm %, tổng các nguồn bằng 100, theo khối lượng và tầm quan trọng), b/h/v (yêu cầu cần đạt ở từng mức, 1 đến 3 gạch đầu dòng ngắn bắt đầu bằng động từ, chỉ dựa trên tài liệu).\nJSON: {"topics":[{"i":0,"nd":"","w":0,"b":"","h":"","v":""}]}`;
- try{const r=await aj(SYS,p,5000);
-  E.topics=E.src.map((s,i)=>{const x=r.topics.find(t=>+t.i===i)||{};return{name:s.t,nd:x.nd||'',w:+x.w||Math.round(100/E.src.length),yc:[x.b||'',x.h||'',x.v||'']}});
-  E.qs=[];calcMatrix();renderTopics();renderQs();save();setMsg('sp-m','Xong. Hãy rà soát và chỉnh trước khi sinh câu hỏi.')}
- catch(e){setMsg('sp-m','');alert('Lỗi AI: '+e.message)}$('sp-b').disabled=false}
 function renderTopics(){$('tp').innerHTML=E.topics.map((t,i)=>`<div class="border rounded-lg p-3 space-y-2"><div class="flex gap-2"><input class="ti" value="${esc(t.name)}" onchange="E.topics[${i}].name=this.value"><input type="number" class="ti" style="width:90px" title="Tỉ trọng điểm %" value="${t.w}" onchange="E.topics[${i}].w=+this.value"></div><input class="ti" placeholder="Nội dung / đơn vị kiến thức" value="${esc(t.nd)}" onchange="E.topics[${i}].nd=this.value"><div class="grid md:grid-cols-3 gap-2">${LV.map((l,j)=>`<label class="text-xs font-bold">${l}<textarea class="ti" rows="3" onchange="E.topics[${i}].yc[${j}]=this.value">${esc(t.yc[j])}</textarea></label>`).join('')}</div></div>`).join('')}
 function calcMatrix(){
  readParams();if(!E.topics.length)return alert('Hãy để AI soạn bản đặc tả trước.');
@@ -167,41 +212,79 @@ function spec(){
  tp.forEach((t,i)=>LV.forEach((l,j)=>{h+=`<tr>${j?'':`<td rowspan="3">${i+1}</td><td rowspan="3" style="text-align:left">${esc(t.name)}</td><td rowspan="3" style="text-align:left">${esc(t.nd)}</td>`}<td style="text-align:left">- ${l}: ${esc(t.yc[j])}</td>${K.map(k=>[0,1,2].map(jj=>`<td>${jj===j?(t.m?.[k]?.[j]||''):''}</td>`).join('')).join('')}</tr>`}));
  return h+'</table>'}
 
-/* ===== 3. SINH CÂU HỎI, KIỂM TRA CHÉO, DUYỆT ===== */
-const norm=q=>{if(q.k==='mc'){q.o=(q.o||[]).slice(0,4);while(q.o.length<4)q.o.push('');q.a=Math.min(3,Math.max(0,+q.a||0))}
- else if(q.k==='ds'){q.o=(q.o||[]).slice(0,4);while(q.o.length<4)q.o.push('');q.a=[0,1,2,3].map(j=>!!(Array.isArray(q.a)&&q.a[j]))}
- else{q.a=String(q.a??'');delete q.o}q.lv=Math.min(2,Math.max(0,+q.lv||0));return q};
-async function genAll(){
- if(!E.topics.length||!E.topics[0].m)return alert('Hãy soạn đặc tả và ma trận ở bước 2.');
- if(E.qs.length&&!confirm('Sinh lại sẽ xóa các câu hỏi hiện có. Tiếp tục?'))return;
- E.qs=[];$('g-b').disabled=true;
+/* ===== 3. SINH CÂU HỎI, NGÂN HÀNG, KIỂM TRA CHÉO, DUYỆT ===== */
+const fixTex=s=>typeof s==='string'?s.replace(/\x0c/g,'\\f').replace(/\x08/g,'\\b').replace(/\x09/g,'\\t').replace(/\x0d/g,'\\r'):s;
+const norm=q=>{q.q=fixTex(q.q||'');q.e=fixTex(q.e||'');
+ if(q.k==='mc'){q.o=(q.o||[]).slice(0,4).map(fixTex);while(q.o.length<4)q.o.push('');q.a=Math.min(3,Math.max(0,+q.a||0))}
+ else if(q.k==='ds'){q.o=(q.o||[]).slice(0,4).map(fixTex);while(q.o.length<4)q.o.push('');q.a=[0,1,2,3].map(j=>!!(Array.isArray(q.a)&&q.a[j]))}
+ else{q.a=fixTex(String(q.a??''));delete q.o}
+ q.lv=Math.min(2,Math.max(0,+q.lv||0));return q};
+async function genFor(i,list){
+ const t=E.topics[i],need=list.map(([k,j,n])=>`${n} câu ${KN[k]} mức ${LV[j]}`);
+ const p=`Môn ${E.subj} khối ${E.grade}. Chủ đề: ${t.name}. Nội dung: ${t.nd}\nYêu cầu cần đạt:\n- Biết: ${t.yc[0]}\n- Hiểu: ${t.yc[1]}\n- Vận dụng: ${t.yc[2]}\n\nTÀI LIỆU NGUỒN:\n${(E.src[i].x||'').slice(0,60000)}\n\nSoạn đúng số lượng: ${need.join('; ')}.\nQuy tắc: chỉ dùng kiến thức có trong tài liệu và chương trình; mỗi câu có một đáp án đúng rõ ràng; phương án nhiễu hợp lý, không lộ, không dùng "cả A và B" hay "tất cả đều đúng"; công thức toán, lý, hóa viết bằng LaTeX trong dấu $...$ (ví dụ $x^2$ và $\\frac{a}{b}$), trong JSON mỗi dấu gạch chéo ngược phải viết thành hai dấu (ví dụ \\\\frac); đúng-sai gồm 4 ý (nên có cả đúng và sai); trả lời ngắn có đáp án là một số hoặc cụm từ ngắn; tự luận kèm hướng dẫn chấm có biểu điểm; mỗi câu ghi nguồn n (mục/bài trong tài liệu).\nJSON: {"qs":[{"k":"mc|ds|tln|tl","lv":0,"q":"","o":[],"a":0,"e":"lời giải ngắn","n":""}]}\nmc: o có 4 phương án (không ghi A,B,C,D), a là chỉ số 0-3. ds: o có 4 ý, a là mảng 4 boolean. tln và tl: bỏ o, a là chuỗi. lv: 0 Biết, 1 Hiểu, 2 Vận dụng.`;
+ return(await aj(SYS,p,9000)).qs.filter(q=>K.includes(q.k)).map(q=>({...norm(q),ti:i,st:'nhap'}))}
+function pullBank(i,k,j,n){
+ const tk=slug(E.topics[i].name),sj=slug(E.subj);
+ return BANK.filter(b=>slug(b.subj)===sj&&String(b.grade)===String(E.grade)&&b.topic===tk&&b.k===k&&b.lv===j&&!E.qs.some(q=>q.bid===b.id))
+  .sort((a,b)=>(a.uses||0)-(b.uses||0)||Math.random()-.5).slice(0,n)}
+async function genAll(quiet){
+ if(!E.topics.length||!E.topics[0].m){alert('Hãy soạn đặc tả và ma trận ở bước 2.');return false}
+ if(!quiet&&E.qs.length&&!confirm('Sinh lại sẽ thay các câu hỏi hiện có (câu đã duyệt vẫn còn trong ngân hàng). Tiếp tục?'))return false;
+ E.qs=[];$('g-b').disabled=true;let ok=true,fromBank=0;
  for(let i=0;i<E.topics.length;i++){
-  const t=E.topics[i],need=[];K.forEach(k=>t.m[k].forEach((n,j)=>n>0&&need.push(`${n} câu ${KN[k]} mức ${LV[j]}`)));if(!need.length)continue;
+  const t=E.topics[i],list=[];
+  K.forEach(k=>t.m[k].forEach((n,j)=>{if(n<=0)return;const got=pullBank(i,k,j,n);fromBank+=got.length;
+   got.forEach(b=>{E.qs.push({k:b.k,lv:b.lv,q:b.q,o:b.o,a:b.a,e:b.e,n:b.n,ti:i,st:'duyet',bid:b.id,fromBank:true});if(b.owner===me.id)col('exam_bank').doc(b.id).update({uses:(b.uses||0)+1}).catch(()=>{})});
+   if(n>got.length)list.push([k,j,n-got.length])}));
+  if(!list.length)continue;
   setMsg('g-m',`Đang sinh chủ đề ${i+1}/${E.topics.length}: ${t.name}`);
-  const p=`Môn ${E.subj} khối ${E.grade}. Chủ đề: ${t.name}. Nội dung: ${t.nd}\nYêu cầu cần đạt:\n- Biết: ${t.yc[0]}\n- Hiểu: ${t.yc[1]}\n- Vận dụng: ${t.yc[2]}\n\nTÀI LIỆU NGUỒN:\n${E.src[i].x}\n\nSoạn đúng số lượng: ${need.join('; ')}.\nQuy tắc: chỉ dùng kiến thức có trong tài liệu và chương trình; mỗi câu có một đáp án đúng rõ ràng; phương án nhiễu hợp lý, không lộ, không dùng "cả A và B" hay "tất cả đều đúng"; công thức viết bằng ký hiệu thường, không dùng LaTeX; đúng-sai gồm 4 ý (nên có cả đúng và sai); trả lời ngắn có đáp án là một số hoặc cụm từ ngắn; tự luận kèm hướng dẫn chấm có biểu điểm; mỗi câu ghi nguồn n (mục/bài trong tài liệu).\nJSON: {"qs":[{"k":"mc|ds|tln|tl","lv":0,"q":"","o":[],"a":0,"e":"lời giải ngắn","n":""}]}\nmc: o có 4 phương án (không ghi A,B,C,D), a là chỉ số 0-3. ds: o có 4 ý, a là mảng 4 boolean. tln và tl: bỏ o, a là chuỗi. lv: 0 Biết, 1 Hiểu, 2 Vận dụng.`;
-  try{(await aj(SYS,p,7000)).qs.filter(q=>K.includes(q.k)).forEach(q=>E.qs.push({...norm(q),ti:i,st:'nhap'}))}catch(e){alert(`Chủ đề "${t.name}": ${e.message}`)}
- }
- $('g-b').disabled=false;renderQs();save();setMsg('g-m','Đã sinh xong. Bấm "AI kiểm tra chéo", rồi xem và duyệt từng câu.')}
+  try{(await genFor(i,list)).forEach(q=>E.qs.push(q))}catch(e){ok=false;alert(`Chủ đề "${t.name}": ${e.message}`)}}
+ $('g-b').disabled=false;renderQs();save();setMsg('g-m',`Đã sinh xong${fromBank?`, lấy ${fromBank} câu từ ngân hàng`:''}. Bấm "AI kiểm tra chéo", rồi xem và duyệt.`);return ok}
 const nz=s=>String(s??'').toLowerCase().replace(/,/g,'.').replace(/\s/g,'');
 const same=(q,a)=>q.k==='mc'?+a===q.a:q.k==='ds'?JSON.stringify(a)===JSON.stringify(q.a):nz(a)===nz(q.a);
-async function verify(){
- if(!E.qs.length)return alert('Chưa có câu hỏi.');$('v-b').disabled=true;
+async function verify(quiet){
+ if(!E.qs.length){if(!quiet)alert('Chưa có câu hỏi.');return false}
+ $('v-b').disabled=true;let ok=true;
  for(let i=0;i<E.topics.length;i++){
-  const ids=E.qs.map((q,x)=>x).filter(x=>E.qs[x].ti===i&&E.qs[x].k!=='tl');if(!ids.length)continue;
+  const ids=E.qs.map((q,x)=>x).filter(x=>E.qs[x].ti===i&&E.qs[x].k!=='tl'&&!E.qs[x].fromBank);if(!ids.length)continue;
   setMsg('g-m',`Đang tự giải chủ đề ${i+1}/${E.topics.length}...`);
-  const p=`TÀI LIỆU:\n${E.src[i].x}\n\nHãy tự giải từng câu dưới đây dựa trên tài liệu và kiến thức chuẩn. Tính toán cẩn thận từng bước. JSON: {"r":[{"id":0,"a":...}]}. mc: a là chỉ số 0-3; ds: a là mảng 4 boolean theo thứ tự ý; tln: a là chuỗi đáp án.\n`+ids.map(x=>{const q=E.qs[x];return`\n[${x}] (${q.k}) ${q.q}`+(q.o?'\n'+q.o.map((o,j)=>`${j}. ${o}`).join('\n'):'')}).join('\n');
-  try{(await aj(SYS2,p,4000)).r.forEach(y=>{if(ids.includes(+y.id))E.qs[+y.id].flag=!same(E.qs[+y.id],y.a)})}catch(e){alert('Lỗi kiểm tra chéo: '+e.message)}}
- $('v-b').disabled=false;renderQs();save();setMsg('g-m','Đã kiểm tra chéo. Câu viền đỏ cần xem lại. Câu tự luận phải đọc kỹ vì chưa được kiểm tra chéo.')}
+  const p=`TÀI LIỆU:\n${(E.src[i].x||'').slice(0,60000)}\n\nHãy tự giải từng câu dưới đây dựa trên tài liệu và kiến thức chuẩn. Tính toán cẩn thận từng bước. JSON: {"r":[{"id":0,"a":...}]}. mc: a là chỉ số 0-3; ds: a là mảng 4 boolean theo thứ tự ý; tln: a là chuỗi đáp án.\n`+ids.map(x=>{const q=E.qs[x];return`\n[${x}] (${q.k}) ${q.q}`+(q.o?'\n'+q.o.map((o,j)=>`${j}. ${o}`).join('\n'):'')}).join('\n');
+  try{(await aj(SYS2,p,6000)).r.forEach(y=>{if(ids.includes(+y.id))E.qs[+y.id].flag=!same(E.qs[+y.id],y.a)})}catch(e){ok=false;alert('Lỗi kiểm tra chéo: '+e.message)}}
+ $('v-b').disabled=false;renderQs();save();setMsg('g-m','Đã kiểm tra chéo. Câu viền đỏ cần xem lại. Câu tự luận phải đọc kỹ vì chưa được kiểm tra chéo.');return ok}
+async function bankSave(q){
+ const t=E.topics[q.ti]||{};
+ try{if(q.bid){await col('exam_bank').doc(q.bid).update({q:q.q,o:q.o||[],a:q.a,e:q.e||'',n:q.n||''});const b=BANK.find(x=>x.id===q.bid);if(b)Object.assign(b,{q:q.q,o:q.o||[],a:q.a,e:q.e||''})}
+  else{const d={owner:me.id,subj:E.subj,grade:E.grade,topic:slug(t.name||''),tname:t.name||'',k:q.k,lv:q.lv,q:q.q,o:q.o||[],a:q.a,e:q.e||'',n:q.n||'',shared:false,uses:0,at:Date.now()};
+   const r=await col('exam_bank').add(d);q.bid=r.id;BANK.push({...d,id:r.id})}}catch(e){console.warn('Ngân hàng:',e.message)}}
+const qc=x=>{const q=E.qs[x];if(q.bid&&q.st==='duyet')bankSave(q)};
+async function tgl(x){const q=E.qs[x];q.st=q.st==='duyet'?'nhap':'duyet';if(q.st==='duyet')await bankSave(q);renderQs();save()}
+async function approveOK(){let n=0;const ps=[];E.qs.forEach(q=>{if(q.st!=='duyet'&&q.flag===false){q.st='duyet';ps.push(bankSave(q));n++}});await Promise.all(ps);renderQs();save();
+ alert(n?`Đã duyệt ${n} câu. Câu tự luận và câu bị cảnh báo cần bạn xem từng câu.`:'Không có câu nào đủ điều kiện (cần chạy kiểm tra chéo trước).')}
+function dq(x){if(confirm('Xóa câu này?')){E.qs.splice(x,1);renderQs();save()}}
+async function regen(x){const q=E.qs[x];setMsg('g-m','Đang tạo lại câu...');
+ try{const r=await genFor(q.ti,[[q.k,q.lv,1]]);if(r[0]){E.qs[x]=r[0];renderQs();save()}setMsg('g-m','')}catch(e){setMsg('g-m','');alert('Lỗi: '+e.message)}}
 function ans(q,x){
- if(q.k==='mc')return q.o.map((o,j)=>`<div class="flex gap-2 items-center"><input type="radio" name="r${x}" ${q.a===j?'checked':''} onchange="E.qs[${x}].a=${j}"><b>${'ABCD'[j]}.</b><input class="ti" value="${esc(o)}" onchange="E.qs[${x}].o[${j}]=this.value"></div>`).join('');
- if(q.k==='ds')return q.o.map((o,j)=>`<div class="flex gap-2 items-center"><b>${'abcd'[j]})</b><input class="ti" value="${esc(o)}" onchange="E.qs[${x}].o[${j}]=this.value"><label class="text-xs font-bold whitespace-nowrap"><input type="checkbox" ${q.a[j]?'checked':''} onchange="E.qs[${x}].a[${j}]=this.checked"> Đúng</label></div>`).join('');
- return`<textarea class="ti" rows="${q.k==='tl'?4:1}" placeholder="Đáp án / hướng dẫn chấm" onchange="E.qs[${x}].a=this.value">${esc(q.a)}</textarea>`}
+ if(q.k==='mc')return q.o.map((o,j)=>`<div class="flex gap-2 items-center"><input type="radio" name="r${x}" ${q.a===j?'checked':''} onchange="E.qs[${x}].a=${j};qc(${x})"><b>${'ABCD'[j]}.</b><input class="ti" value="${esc(o)}" onchange="E.qs[${x}].o[${j}]=this.value;qc(${x})"></div>`).join('');
+ if(q.k==='ds')return q.o.map((o,j)=>`<div class="flex gap-2 items-center"><b>${'abcd'[j]})</b><input class="ti" value="${esc(o)}" onchange="E.qs[${x}].o[${j}]=this.value;qc(${x})"><label class="text-xs font-bold whitespace-nowrap"><input type="checkbox" ${q.a[j]?'checked':''} onchange="E.qs[${x}].a[${j}]=this.checked;qc(${x})"> Đúng</label></div>`).join('');
+ return`<textarea class="ti" rows="${q.k==='tl'?4:1}" placeholder="Đáp án / hướng dẫn chấm" onchange="E.qs[${x}].a=this.value;qc(${x})">${esc(q.a)}</textarea>`}
+const pv=q=>`<div class="kx rounded bg-slate-50 p-2 text-sm">${nl(q.q)}`+(q.k==='mc'?q.o.map((o,j)=>`<div>${'ABCD'[j]}. ${esc(o)}</div>`).join(''):q.k==='ds'?q.o.map((o,j)=>`<div>${'abcd'[j]}) ${esc(o)}</div>`).join(''):'')+'</div>';
 function renderQs(){
  const need=k=>E.topics.reduce((a,t)=>a+(t.m?.[k]?sm(t,k):0),0);
  $('g-sum').textContent=E.qs.length?K.map(k=>`${KN[k]}: ${E.qs.filter(q=>q.k===k).length}/${need(k)}`).join(' | ')+` | Đã duyệt: ${E.qs.filter(q=>q.st==='duyet').length}/${E.qs.length}`:'';
- $('qs').innerHTML=E.qs.map((q,x)=>`<div class="border-2 rounded-lg p-3 space-y-2 ${q.flag?'border-red-400 bg-red-50':q.st==='duyet'?'border-emerald-400':'border-slate-200'}"><div class="flex flex-wrap gap-2 items-center text-xs font-bold"><span class="bg-slate-100 px-2 py-0.5 rounded">${esc(E.topics[q.ti]?.name)}</span><span>${KN[q.k]}</span><span>${LV[q.lv]}</span>${q.flag?'<span class="text-red-600">AI tự giải ra đáp án khác, hãy kiểm tra</span>':q.flag===false?'<span class="text-emerald-600">Đã kiểm tra chéo</span>':''}<span class="grow"></span><button class="b ${q.st==='duyet'?'g':'s'}" onclick="tgl(${x})">${q.st==='duyet'?'Đã duyệt':'Duyệt'}</button><button class="b d" onclick="dq(${x})">Xóa</button></div><textarea class="ti" rows="2" onchange="E.qs[${x}].q=this.value">${esc(q.q)}</textarea>${ans(q,x)}<div class="flex gap-2 items-center text-xs text-slate-500"><span class="whitespace-nowrap">Lời giải</span><input class="ti" value="${esc(q.e||'')}" onchange="E.qs[${x}].e=this.value"><span class="whitespace-nowrap">Nguồn: ${esc(q.n||'')}</span></div></div>`).join('')}
-function tgl(x){E.qs[x].st=E.qs[x].st==='duyet'?'nhap':'duyet';renderQs();save()}
-function dq(x){if(confirm('Xóa câu này?')){E.qs.splice(x,1);renderQs();save()}}
+ const list=E.qs.map((q,x)=>[q,x]).filter(([q])=>FIL==='all'||(FIL==='flag'&&q.flag)||(FIL==='todo'&&q.st!=='duyet'));
+ $('qs').innerHTML=list.map(([q,x])=>`<div class="border-2 rounded-lg p-3 space-y-2 ${q.flag?'border-red-400 bg-red-50':q.st==='duyet'?'border-emerald-400':'border-slate-200'}"><div class="flex flex-wrap gap-2 items-center text-xs font-bold"><span class="bg-slate-100 px-2 py-0.5 rounded">${esc(E.topics[q.ti]?.name)}</span><span>${KN[q.k]}</span><span>${LV[q.lv]}</span>${q.fromBank?'<span class="text-sky-700">Từ ngân hàng</span>':''}${q.flag?'<span class="text-red-600">AI tự giải ra đáp án khác, hãy kiểm tra</span>':q.flag===false?'<span class="text-emerald-600">Đã kiểm tra chéo</span>':''}<span class="grow"></span><button class="b s" onclick="regen(${x})">Tạo lại</button><button class="b ${q.st==='duyet'?'g':'s'}" onclick="tgl(${x})">${q.st==='duyet'?'Đã duyệt':'Duyệt'}</button><button class="b d" onclick="dq(${x})">Xóa</button></div>${pv(q)}<textarea class="ti" rows="2" onchange="E.qs[${x}].q=this.value;qc(${x});renderQs()">${esc(q.q)}</textarea>${ans(q,x)}<div class="flex gap-2 items-center text-xs text-slate-500"><span class="whitespace-nowrap">Lời giải</span><input class="ti" value="${esc(q.e||'')}" onchange="E.qs[${x}].e=this.value;qc(${x})"><span class="whitespace-nowrap">Nguồn: ${esc(q.n||'')}</span></div></div>`).join('')||'<p class="text-slate-400 italic">Không có câu hỏi nào để hiển thị.</p>';
+ if(window.renderMathInElement)$('qs').querySelectorAll('.kx').forEach(el=>renderMathInElement(el,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false}))}
+function renderBank(){
+ const R=BANK.filter(b=>slug(b.subj)===slug(E.subj)&&String(b.grade)===String(E.grade));
+ $('bk').innerHTML=R.length?`<table class="st w-full"><tr><th>Chủ đề</th><th>Dạng</th><th>Mức</th><th>Nội dung</th><th>Đã dùng</th><th>Chia sẻ</th><th></th></tr>`+R.map(b=>`<tr><td class="!text-left">${esc(b.tname)}</td><td>${KN[b.k]}</td><td>${LV[b.lv]}</td><td class="!text-left">${esc(String(b.q).slice(0,90))}</td><td>${b.uses||0}</td><td>${b.owner===me.id?`<input type="checkbox" ${b.shared?'checked':''} onchange="bkShare('${b.id}',this.checked)">`:'của '+esc(String(b.owner).split('@')[0])}</td><td>${b.owner===me.id?`<button class="b d" onclick="bkDel('${b.id}')">Xóa</button>`:''}</td></tr>`).join('')+'</table>':'<p class="text-slate-400 italic">Chưa có câu hỏi nào cho môn và khối này. Hãy duyệt câu hỏi ở bước 3.</p>'}
+async function bkShare(id,v){try{await col('exam_bank').doc(id).update({shared:v});const b=BANK.find(x=>x.id===id);if(b)b.shared=v}catch(e){alert('Lỗi: '+e.message)}}
+async function bkDel(id){if(!confirm('Xóa câu này khỏi ngân hàng?'))return;try{await col('exam_bank').doc(id).delete();BANK=BANK.filter(x=>x.id!==id);E.qs.forEach(q=>{if(q.bid===id)delete q.bid});renderBank()}catch(e){alert('Lỗi: '+e.message)}}
+async function autoAll(){
+ readParams();if(!E.src.length)return alert('Hãy thêm tài liệu.');if(!E.subj||!E.grade)return alert('Hãy nhập môn và khối.');
+ if(E.qs.length&&!confirm('Tạo đề tự động sẽ thay các câu hỏi hiện có (câu đã duyệt vẫn còn trong ngân hàng). Tiếp tục?'))return;
+ $('auto-b').disabled=true;setMsg('sr-m','Đang chạy tự động, vui lòng không đóng trang...');
+ const ok=await aiSpec(true)&&await genAll(true)&&await verify(true);
+ $('auto-b').disabled=false;setMsg('sr-m',ok?'Xong. Hãy xem và duyệt câu hỏi ở bước 3.':'Quy trình dừng giữa chừng, hãy xem thông báo lỗi và làm tiếp từng bước.');if(ok)go('gen')}
 
 /* ===== 4. XUẤT ĐỀ ===== */
 const rng=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
@@ -218,25 +301,35 @@ function ready(){const un=E.qs.filter(q=>q.st!=='duyet').length,fl=E.qs.filter(q
  if(!E.qs.length){alert('Chưa có câu hỏi.');return false}
  return!(un||fl)||confirm(`Còn ${un} câu chưa duyệt và ${fl} câu bị AI cảnh báo đáp án. Vẫn xuất?`)}
 const nv=()=>+$('e-n').value;
-function dlExam(){
- if(!ready())return;let out=[];
- for(let m=0;m<nv();m++){const v=version(m),code=101+m;let rm=0;const R=['I','II','III','IV'];
-  let h=`<table width="100%"><tr><td align="center"><b>SỞ GIÁO DỤC VÀ ĐÀO TẠO</b><br><b>${esc(SN.toUpperCase())}</b></td><td align="center"><b>${esc(E.title.toUpperCase())}</b><br>Môn: ${esc(E.subj)} - Lớp ${esc(E.grade)}<br><i>Thời gian: ${E.time} phút (không kể thời gian phát đề)</i></td><td align="center"><b>Mã đề: ${code}</b></td></tr></table><p>Họ và tên: ................................................ Lớp: ..........</p>`;
-  const notes={mc:'Mỗi câu chỉ chọn một phương án.',ds:'Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.',tln:'Thí sinh ghi đáp án vào phiếu trả lời.',tl:'Trình bày lời giải.'};
-  K.forEach(k=>{const a=v[k];if(!a.length)return;let n=0;
-   h+=`<p><b>PHẦN ${R[rm++]}. Câu ${k==='tl'?'tự luận':'trắc nghiệm '+KN[k].toLowerCase()}.</b> <i>(${fm(E.per[k])} điểm mỗi câu. ${notes[k]})</i></p>`;
-   a.forEach(q=>{h+=`<p><b>Câu ${++n}.</b> ${nl(q.q)}</p>`;
-    if(k==='mc')q.o.forEach((o,j)=>h+=`<p style="margin-left:20px">${'ABCD'[j]}. ${nl(o)}</p>`);
-    if(k==='ds')q.o.forEach((o,j)=>h+=`<p style="margin-left:20px">${'abcd'[j]}) ${nl(o)}</p>`)})});
-  out.push(h+'<p align="center">--- HẾT ---</p>')}
- dl(DH(out.join(PB)),'DeThi.doc')}
+/* LaTeX -> ký hiệu thường, dùng cho file Word */
+const SUP={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','n':'ⁿ'},SUB={'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','+':'₊','-':'₋'};
+const SYM={alpha:'α',beta:'β',gamma:'γ',delta:'δ',Delta:'Δ',theta:'θ',lambda:'λ',mu:'μ',pi:'π',sigma:'σ',omega:'ω',Omega:'Ω',phi:'φ',rho:'ρ',epsilon:'ε',varepsilon:'ε',eta:'η',tau:'τ',cdot:'·',times:'×',div:'÷',pm:'±',le:'≤',leq:'≤',ge:'≥',geq:'≥',ne:'≠',neq:'≠',approx:'≈',infty:'∞',to:'→',rightarrow:'→',Rightarrow:'⇒',Leftrightarrow:'⇔',leftrightarrow:'↔',in:'∈',notin:'∉',subset:'⊂',cup:'∪',cap:'∩',circ:'°',sum:'Σ',prod:'Π',int:'∫',partial:'∂',ldots:'…',angle:'∠',perp:'⊥',parallel:'∥',triangle:'△',left:'',right:'',displaystyle:'',mathrm:'',mathbf:'',text:'',quad:' ',qquad:'  ',vec:'',overrightarrow:'',hat:'',bar:''};
+function tex2u(s){return String(s??'').replace(/\$\$?([^$]+)\$\$?/g,(_,m)=>{
+ let r=m.replace(/\\dfrac/g,'\\frac').replace(/\^\s*\{?\\circ\}?/g,'°');
+ for(let i=0;i<4;i++)r=r.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g,'($1)/($2)').replace(/\\sqrt\s*\{([^{}]*)\}/g,'√($1)');
+ return r.replace(/\\sqrt\s*(\w)/g,'√$1').replace(/\^\{([^{}]*)\}/g,(_,a)=>[...a].map(c=>SUP[c]||c).join('')).replace(/\^(\w)/g,(_,a)=>SUP[a]||'^'+a)
+  .replace(/_\{([^{}]*)\}/g,(_,a)=>[...a].map(c=>SUB[c]||c).join('')).replace(/_(\w)/g,(_,a)=>SUB[a]||'_'+a)
+  .replace(/\\([A-Za-z]+)/g,(_,w)=>w in SYM?SYM[w]:w).replace(/\\[,;: !]/g,' ').replace(/[{}]/g,'')})}
+function buildExam(m,v,f){
+ const R=['I','II','III','IV'],notes={mc:'Mỗi câu chỉ chọn một phương án.',ds:'Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.',tln:'Thí sinh ghi đáp án vào phiếu trả lời.',tl:'Trình bày lời giải.'};let rm=0;
+ let h=`<table width="100%"><tr><td align="center"><b>SỞ GIÁO DỤC VÀ ĐÀO TẠO</b><br><b>${esc(SN.toUpperCase())}</b></td><td align="center"><b>${esc(E.title.toUpperCase())}</b><br>Môn: ${esc(E.subj)} - Lớp ${esc(E.grade)}<br><i>Thời gian: ${E.time} phút (không kể thời gian phát đề)</i></td><td align="center"><b>Mã đề: ${101+m}</b></td></tr></table><p>Họ và tên: ................................................ Lớp: ..........</p>`;
+ K.forEach(k=>{const a=v[k];if(!a.length)return;let n=0;
+  h+=`<p><b>PHẦN ${R[rm++]}. Câu ${k==='tl'?'tự luận':'trắc nghiệm '+KN[k].toLowerCase()}.</b> <i>(${fm(E.per[k])} điểm mỗi câu. ${notes[k]})</i></p>`;
+  a.forEach(q=>{h+=`<p><b>Câu ${++n}.</b> ${f(q.q)}</p>`;
+   if(k==='mc')q.o.forEach((o,j)=>h+=`<p style="margin-left:20px">${'ABCD'[j]}. ${f(o)}</p>`);
+   if(k==='ds')q.o.forEach((o,j)=>h+=`<p style="margin-left:20px">${'abcd'[j]}) ${f(o)}</p>`)})});
+ return h+'<p align="center">--- HẾT ---</p>'}
+function dlExam(){if(!ready())return;const out=[];for(let m=0;m<nv();m++)out.push(buildExam(m,version(m),s=>nl(tex2u(s))));dl(DH(out.join(PB)),'DeThi.doc')}
+function pdfExam(){if(!ready())return;const out=[];for(let m=0;m<nv();m++)out.push(buildExam(m,version(m),nl));
+ const w=window.open('','_blank');if(!w)return alert('Trình duyệt đang chặn cửa sổ bật lên. Hãy cho phép rồi bấm lại.');
+ w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(E.title)}</title><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"><style>body{font-family:'Times New Roman',serif;font-size:13pt;line-height:1.4;margin:0 1cm}p{margin:4px 0}@page{size:A4;margin:1.5cm}</style></head><body>${out.join('<div style="page-break-after:always"></div>')}<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"><\/script><script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"><\/script><script>window.onload=function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}],throwOnError:false});setTimeout(function(){window.print()},500)}<\/script></body></html>`);w.document.close()}
 function dlKey(){
- if(!ready())return;let out=[];
+ if(!ready())return;const out=[],f=s=>nl(tex2u(s));
  for(let m=0;m<nv();m++){const v=version(m);let h=`<p><b>ĐÁP ÁN - Mã đề ${101+m}</b></p>`;
   if(v.mc.length)h+=`<p><b>Phần nhiều lựa chọn:</b> ${v.mc.map((q,i)=>`${i+1}.${'ABCD'[q.a]}`).join(' &nbsp; ')}</p>`;
   if(v.ds.length)h+=`<p><b>Phần đúng - sai:</b></p>`+v.ds.map((q,i)=>`<p>Câu ${i+1}: ${q.a.map((x,j)=>`${'abcd'[j]}-${x?'Đ':'S'}`).join(' ')}</p>`).join('');
-  if(v.tln.length)h+=`<p><b>Phần trả lời ngắn:</b></p>`+v.tln.map((q,i)=>`<p>Câu ${i+1}: ${nl(q.a)}</p>`).join('');
-  if(v.tl.length)h+=`<p><b>Phần tự luận:</b></p>`+v.tl.map((q,i)=>`<p><b>Câu ${i+1}.</b> ${nl(q.a)}</p>`).join('');
+  if(v.tln.length)h+=`<p><b>Phần trả lời ngắn:</b></p>`+v.tln.map((q,i)=>`<p>Câu ${i+1}: ${f(q.a)}</p>`).join('');
+  if(v.tl.length)h+=`<p><b>Phần tự luận:</b></p>`+v.tl.map((q,i)=>`<p><b>Câu ${i+1}.</b> ${f(q.a)}</p>`).join('');
   out.push(h)}
  dl(DH(out.join(PB)),'DapAn.doc')}
 function dlMx(){
